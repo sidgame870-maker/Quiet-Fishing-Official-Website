@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiet Fishing — игра про рыбалку</title>
+<meta name="description" content="Quiet Fishing — уютная рыбалка от первого лица. Игра в разработке, скоро ранний доступ. Потребуется Python и Pygame.">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+:root{
+  --sky1:#e85c2c; --sky2:#ffcd87; --sky3:#ffe3b3;
+  --sea1:#3f8fb5; --sea2:#12304e;
+  --wood:#6b4a2e; --wood-dark:#4a341f; --rope:#b49664;
+  --text:#fff7ea;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Segoe UI","Rubik",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  color:var(--text);
+  background:linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 34%,var(--sky3) 46%,var(--sea1) 46.2%,#1c4668 72%,var(--sea2) 100%);
+  min-height:100vh; overflow-x:hidden;
+}
+/* --- солнце и облака --- */
+.sun{position:fixed;top:10vh;right:16vw;width:170px;height:170px;border-radius:50%;
+  background:radial-gradient(circle,#fff6d8 0%,#ffe9a8 45%,rgba(255,220,140,0) 72%);
+  box-shadow:0 0 120px 60px rgba(255,214,140,.55);pointer-events:none;z-index:0}
+.cloud{position:fixed;background:rgba(255,255,255,.5);filter:blur(2px);border-radius:999px;pointer-events:none;z-index:0}
+.c1{top:8vh;left:-20vw;width:240px;height:46px;animation:drift 70s linear infinite}
+.c2{top:17vh;left:-30vw;width:320px;height:56px;animation:drift 95s linear infinite}
+.c3{top:26vh;left:-15vw;width:180px;height:38px;animation:drift 55s linear infinite}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(140vw)}}
+/* --- море и волны --- */
+.sea{position:fixed;left:0;right:0;bottom:0;height:34vh;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,rgba(63,143,181,0) 0%,rgba(63,143,181,.85) 30%,#16324f 100%)}
+.wave{position:absolute;left:0;right:0;background-repeat:repeat-x;animation:slide linear infinite}
+.w1{--c:rgba(63,143,181,.95);bottom:22vh;height:26px;background-image:radial-gradient(circle at 12px -6px,transparent 14px,var(--c) 15px);background-size:24px 24px;animation-duration:11s}
+.w2{--c:rgba(255,255,255,.28);bottom:calc(22vh + 12px);height:20px;background-image:radial-gradient(circle at 12px -6px,transparent 14px,var(--c) 15px);background-size:24px 24px;animation-duration:7s;animation-direction:reverse}
+.w3{--c:rgba(18,48,78,.95);bottom:0;height:30px;background-image:radial-gradient(circle at 12px -6px,transparent 14px,var(--c) 15px);background-size:24px 24px;animation-duration:15s}
+@keyframes slide{from{background-position-x:0}to{background-position-x:24px}}
+/* --- выпрыгивающая рыба --- */
+.jumpfish{position:fixed;bottom:26vh;left:10vw;width:76px;pointer-events:none;z-index:1;
+  animation:jump 8s ease-in-out infinite;opacity:0}
+@keyframes jump{
+  0%{transform:translateY(70px) rotate(45deg);opacity:0}
+  8%{opacity:1}
+  40%{transform:translateY(-95px) rotate(-5deg)}
+  60%{transform:translateY(-70px) rotate(-30deg)}
+  78%{transform:translateY(45px) rotate(-65deg);opacity:1}
+  88%{opacity:0}
+  100%{transform:translateY(70px) rotate(45deg);opacity:0}
+}
+/* --- шапка --- */
+.hero{position:relative;z-index:2;text-align:center;padding:9vh 1rem 3rem}
+.logo svg{width:150px;height:150px;filter:drop-shadow(0 6px 12px rgba(60,30,10,.35))}
+.hero h1{margin:.15em 0 .1em;font-size:clamp(2.4rem,7vw,4.4rem);letter-spacing:3px;color:#5d3212;
+  text-shadow:0 2px 0 rgba(255,240,200,.6),0 6px 24px rgba(120,50,10,.35)}
+.tagline{max-width:660px;margin:0 auto 1.2rem;font-size:1.1rem;color:#7a4a1f}
+.badge{display:inline-block;margin:.25rem .3rem;padding:.55rem 1.1rem;border-radius:999px;
+  font-weight:700;font-size:.95rem;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25),inset 0 2px 0 rgba(255,255,255,.25)}
+.badge.dev{background:#a3322c;animation:pulse 2.2s ease-in-out infinite}
+.badge.soon{background:#2c6e8a}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+/* --- панели (дерево) --- */
+main{position:relative;z-index:2;max-width:1000px;margin:0 auto;padding:1rem 1rem 8rem;display:grid;gap:2rem}
+.panel{position:relative;background:linear-gradient(180deg,#7a5636,#6b4a2e 30%,#5d3f26);
+  border:4px solid var(--wood-dark);border-radius:16px;padding:1.6rem 1.8rem;
+  box-shadow:0 12px 32px rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.15);
+  transition:opacity .6s ease,transform .6s ease}
+.panel::before{content:"";position:absolute;inset:0;border-radius:12px;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0 2px,transparent 2px 16px)}
+.panel.hidden{opacity:0;transform:translateY(26px)}
+.panel.show{opacity:1;transform:none}
+.panel h2{margin:0 0 .8rem;color:#ffe3b3;border-bottom:3px solid var(--rope);padding-bottom:.45rem;font-size:1.55rem}
+.panel p{line-height:1.65;margin:.5rem 0}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;list-style:none;padding:0;margin:1.2rem 0 0}
+.features li{background:rgba(0,0,0,.2);border:2px solid rgba(180,150,100,.5);border-radius:12px;padding:.85rem;font-size:.95rem;line-height:1.5}
+.features li b{display:block;color:#ffd9a0;margin-bottom:.3rem}
+/* --- команды --- */
+.cmd{display:flex;align-items:center;gap:1rem;background:#1d1a16;border:2px solid #3a342c;border-radius:10px;
+  padding:.75rem 1rem;margin:.8rem 0;font-family:Consolas,"Courier New",monospace}
+.cmd code{flex:1;color:#9fe3a0;font-size:1rem;user-select:all;white-space:pre-wrap}
+.copy{background:var(--rope);border:none;color:#3a2a12;padding:.45rem .9rem;border-radius:8px;cursor:pointer;font-weight:700}
+.copy:hover{filter:brightness(1.12)}
+ol.steps{line-height:1.7;padding-left:1.3rem}
+ol.steps code{background:rgba(0,0,0,.3);padding:.1rem .4rem;border-radius:6px;color:#ffd9a0}
+/* --- прогресс --- */
+.progress{height:24px;background:#3a2a18;border:2px solid var(--wood-dark);border-radius:999px;overflow:hidden;margin:1rem 0 .6rem}
+.bar{height:100%;width:70%;border-radius:999px;background:linear-gradient(90deg,#ffb347,#ff8c42);animation:grow 1.8s ease-out}
+@keyframes grow{from{width:0}}
+.todo{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}
+.todo ul{margin:0;padding-left:1.2rem;line-height:1.7}
+.todo h3{margin:0 0 .4rem;color:#ffd9a0;font-size:1.05rem}
+@media(max-width:640px){.todo{grid-template-columns:1fr}}
+footer{position:relative;z-index:2;text-align:center;padding:1.2rem 1rem;color:#cfe3ef;background:rgba(10,25,40,.65);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<div class="sun"></div>
+<div class="cloud c1"></div>
+<div class="cloud c2"></div>
+<div class="cloud c3"></div>
+
+<div class="sea">
+  <div class="wave w2"></div>
+  <div class="wave w1"></div>
+  <div class="wave w3"></div>
+</div>
+
+<svg class="jumpfish" viewBox="0 0 100 60" aria-hidden="true">
+  <polygon points="78,30 96,14 96,46" fill="#4f8f7f"/>
+  <ellipse cx="55" cy="30" rx="30" ry="16" fill="#5fb3a1"/>
+  <polygon points="45,16 55,2 62,14" fill="#4f8f7f"/>
+  <circle cx="34" cy="26" r="4" fill="#fff"/><circle cx="34" cy="26" r="2" fill="#222"/>
+  <circle cx="52" cy="26" r="2.5" fill="#e77fc3"/><circle cx="60" cy="34" r="2.5" fill="#7fe3d3"/>
+</svg>
+
+<header class="hero">
+  <div class="logo">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <path d="M152,192 C152,120 122,58 62,38" stroke="#3a2a1a" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <circle cx="98" cy="86" r="4" fill="none" stroke="#3a2a1a" stroke-width="3"/>
+      <circle cx="80" cy="60" r="4" fill="none" stroke="#3a2a1a" stroke-width="3"/>
+      <path d="M62,38 C22,58 30,108 66,118" stroke="#f4f4f4" stroke-width="2.5" fill="none"/>
+      <g transform="rotate(-18 82 132)">
+        <polygon points="52,132 30,116 30,148" fill="#4f8f7f"/>
+        <ellipse cx="82" cy="132" rx="34" ry="19" fill="#5fb3a1"/>
+        <polygon points="70,116 80,100 90,114" fill="#4f8f7f"/>
+        <circle cx="60" cy="127" r="5" fill="#fff"/><circle cx="60" cy="127" r="2.5" fill="#222"/>
+        <circle cx="80" cy="126" r="3" fill="#e77fc3"/><circle cx="90" cy="138" r="3" fill="#7fe3d3"/>
+      </g>
+      <circle cx="150" cy="176" r="14" fill="#8a97a5"/><circle cx="150" cy="176" r="6" fill="#5c6875"/>
+    </svg>
+  </div>
+  <h1>QUIET FISHING</h1>
+  <p class="tagline">Уютная рыбалка от первого лица: закат над деревней, тихая вода, дед Василий на прилавке и ведро, полное улова.</p>
+  <span class="badge dev">Игра в разработке</span>
+  <span class="badge soon">Скоро — ранний доступ</span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Об игре</h2>
+    <p><b>Quiet Fishing</b> — спокойная, но азартная рыбалка от первого лица в стиле закатного синтвейва деревенского разлива.
+       Закидывай удочку, жди поклёвку, подсекай вовремя — и неси улов деду Василию: он взвесит, оценит и заплатит.
+       А на вырученные деньги прокачивай снасти: чем лучше комплектующие, тем крупнее рыба и больше доход.</p>
+    <ul class="features">
+      <li><b>Вид от первого лица</b>Тихая вода, оранжевое небо, блики солнца и выплывающая рыба.</li>
+      <li><b>Удочка и спиннинг</b>Отдельные ветки снастей: удилища, катушки, леска, крючки, насадки и приманки.</li>
+      <li><b>Дед Василий</b>Лавка, весы, голос старого рыбака и бесплатный хлеб, если совсем туго.</li>
+      <li><b>Честный улов</b>Ведро с рыбой, взвешивание и цена, которая зависит от веса и прокачки.</li>
+      <li><b>Живой мир</b>Птицы, бабочки, дым из труб, всплески рыбы и звуки заката.</li>
+      <li><b>Сохранения</b>Слоты сохранений: несколько рыболовов на одном компьютере.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Статус разработки</h2>
+    <p>Мы полируем механики, баланс и атмосферу. Игра выйдет в <b>раннем доступе совсем скоро</b> — следите за новостями!</p>
+    <div class="progress" title="Готовность ~70%"><div class="bar"></div></div>
+    <p style="margin:0;font-size:.9rem;opacity:.85">Готовность: ~70%</p>
+    <div class="todo">
+      <div>
+        <h3>Уже готово</h3>
+        <ul>
+          <li>Рыбалка, поклёвки и подсечки</li>
+          <li>Магазин снастей и дед Василий</li>
+          <li>Весы, ведро и экономика улова</li>
+          <li>Звуки, голос Василия, закат</li>
+        </ul>
+      </div>
+      <div>
+        <h3>В работе</h3>
+        <ul>
+          <li>Сборка раннего доступа</li>
+          <li>Больше рыбы и событий</li>
+          <li>Баланс цен и прокачки</li>
+          <li>Польские и погодные эффекты</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Как запустить после выхода</h2>
+    <p>Игра создаётся на <b>Python</b> и <b>Pygame</b>, поэтому при выходе в ранний доступ на компьютере понадобятся:</p>
+    <ol class="steps">
+      <li>Установить <b>Python 3.9+</b> с сайта python.org (при установке отметьте «Add Python to PATH»).</li>
+      <li>Отеть терминал (командную строку) и установить игровую библиотеку Pygame:</li>
+    </ol>
+    <div class="cmd"><code>pip install pygame</code><button class="copy" data-cmd="pip install pygame">Копировать</button></div>
+    <ol class="steps" start="3">
+      <li>Скачать игру и запустить главный файл:</li>
+    </ol>
+    <div class="cmd"><code>python fishing_fp.py</code><button class="copy" data-cmd="python fishing_fp.py">Копировать</button></div>
+    <p style="font-size:.92rem;opacity:.9">Ничего больше не нужно: вся графика и звуки генерируются самой игрой.
+       Достаточно Python и Pygame — и можно на рыбалку.</p>
+  </section>
+</main>
+
+<footer>
+  © <span id="year"></span> Quiet Fishing · Игра создаётся на Python + Pygame · Скоро в раннем доступе
+</footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+document.querySelectorAll('.copy').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var text = btn.getAttribute('data-cmd');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function(){
+        btn.textContent = 'Скопировано!';
+        setTimeout(function(){ btn.textContent = 'Копировать'; }, 1500);
+      });
+    }
+  });
+});
+
+var io = new IntersectionObserver(function(entries){
+  entries.forEach(function(e){
+    if (e.isIntersecting) { e.target.classList.add('show'); io.unobserve(e.target); }
+  });
+}, {threshold: 0.15});
+document.querySelectorAll('.panel').forEach(function(p){
+  p.classList.add('hidden');
+  io.observe(p);
+});
+</script>
+
+</body>
+</html>
